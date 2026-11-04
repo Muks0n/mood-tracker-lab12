@@ -453,6 +453,20 @@ form button + button
     margin-left: 12px;
 }
 
+/* Практична №12: Canvas-графік настрою */
+
+#mood-canvas
+{
+    display: block;
+    max-width: 100%;
+    height: auto;
+
+    background-color: #ffe6d2;
+
+    border: 2px solid #c9beb7;
+    border-radius: 16px;
+}
+
 /* Адаптація для планшетів */
 
 @media (min-width: 600px)
