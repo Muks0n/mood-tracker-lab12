@@ -1,18 +1,142 @@
 
-// Обрано Vue 3, оскільки він підтримує реактивність
-// і компоненти та легко підключається через CDN.
+ // Обрано Vue 3, оскільки він підтримує реактивність
+ // і компоненти та легко підключається через CDN.
 
-// Практична №11.
-// встановити "local".
-// або
-// встановити "indexed".
+ // Практична №11: вибір сховища.
+ // "local" — localStorage, "indexed" — IndexedDB.
 
 const STORAGE_MODE = "indexed";
 
 const API_URL =
     "https://jsonplaceholder.typicode.com/comments?postId=1";
 
-// Компонент одного запису настрою.
+// Практична №12. Варіант №3.
+// Canvas: анімований графік останніх 7 записів настрою.
+
+const CHART_RECORD_COUNT = 7;
+let chartAnimationId = null;
+
+function drawMoodChart(records)
+{
+    const canvas = document.getElementById("mood-canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Скасування попередньої анімації.
+    if (chartAnimationId !== null)
+    {
+        cancelAnimationFrame(chartAnimationId);
+        chartAnimationId = null;
+    }
+
+    const lastRecords = records.slice(-CHART_RECORD_COUNT);
+
+    const left = 50;
+    const right = canvas.width - 30;
+    const top = 30;
+    const bottom = canvas.height - 45;
+
+    const points = lastRecords.map((record, index) => ({
+        x: left + index * (right - left) /
+            Math.max(lastRecords.length - 1, 1),
+
+        y: bottom - (record.mood - 1) *
+            (bottom - top) / 4
+    }));
+
+    let startTime = null;
+
+    function animate(timestamp)
+    {
+        if (startTime === null)
+        {
+            startTime = timestamp;
+        }
+
+        const progress = Math.min((timestamp - startTime) / 1000, 1);
+
+        // Очищення Canvas перед кожним кадром.
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Осі графіка.
+        ctx.strokeStyle = "#66577a";
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.moveTo(left, top);
+        ctx.lineTo(left, bottom);
+        ctx.lineTo(right, bottom);
+        ctx.stroke();
+
+        // Підписи рівнів настрою.
+        ctx.fillStyle = "#403b43";
+        ctx.font = "14px Arial";
+
+        for (let mood = 1; mood <= 5; mood++)
+        {
+            const y = bottom - (mood - 1) * (bottom - top) / 4;
+            ctx.fillText(String(mood), left - 25, y + 5);
+        }
+
+        // Підписи номерів записів.
+        points.forEach((point, index) => {
+            ctx.fillText(String(index + 1), point.x - 4, bottom + 22);
+        });
+
+        // Плавне промальовування ламаної.
+        if (points.length > 1)
+        {
+            ctx.strokeStyle = "#66577a";
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+
+            const position = progress * (points.length - 1);
+            const completed = Math.floor(position);
+
+            for (let i = 1; i <= completed; i++)
+            {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+
+            if (progress < 1)
+            {
+                const fraction = position - completed;
+                const current = points[completed];
+                const next = points[completed + 1];
+
+                ctx.lineTo(
+                    current.x + (next.x - current.x) * fraction,
+                    current.y + (next.y - current.y) * fraction
+                );
+            }
+
+            ctx.stroke();
+        }
+        else if (points.length === 1)
+        {
+            // Один запис відображається як точка.
+            ctx.beginPath();
+            ctx.arc(points[0].x, points[0].y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = "#66577a";
+            ctx.fill();
+        }
+
+        // Завершення анімації після 1 секунди.
+        if (progress < 1)
+        {
+            chartAnimationId = requestAnimationFrame(animate);
+        }
+        else
+        {
+            chartAnimationId = null;
+        }
+    }
+
+    chartAnimationId = requestAnimationFrame(animate);
+}
+
+// Практична №10: компонент запису настрою.
 const MoodEntry = {
     props: {
         id: {
@@ -39,7 +163,8 @@ const MoodEntry = {
     emits: ["edit", "delete"],
 
     computed: {
-        moodEmoji() {
+        moodEmoji()
+        {
             const emoji = {
                 1: "😢",
                 2: "😔",
@@ -51,7 +176,8 @@ const MoodEntry = {
             return emoji[this.mood] || "❔";
         },
 
-        moodLabel() {
+        moodLabel()
+        {
             const labels = {
                 1: "Дуже сумний",
                 2: "Сумний",
@@ -111,7 +237,8 @@ const app = Vue.createApp({
         MoodEntry
     },
 
-    data() {
+    data()
+    {
         return {
             moodRecords: [],
 
@@ -131,8 +258,10 @@ const app = Vue.createApp({
     },
 
     computed: {
-        averageMood() {
-            if (this.moodRecords.length === 0) {
+        averageMood()
+        {
+            if (this.moodRecords.length === 0)
+            {
                 return 0;
             }
 
@@ -145,10 +274,24 @@ const app = Vue.createApp({
         }
     },
 
+    // Практична №12: оновлення графіка при зміні записів.
+    watch: {
+        moodRecords: {
+            handler(newRecords)
+            {
+                drawMoodChart(newRecords);
+            },
+
+            deep: true
+        }
+    },
+
     methods: {
-        // Додавання або редагування запису.
-        async saveMoodRecord() {
-            if (!this.storageReady) {
+        // Практична №11: додавання або редагування запису.
+        async saveMoodRecord()
+        {
+            if (!this.storageReady)
+            {
                 return;
             }
 
@@ -159,7 +302,7 @@ const app = Vue.createApp({
                 !Number.isInteger(mood) ||
                 mood < 1 ||
                 mood > 5
-            ) 
+            )
             {
                 return;
             }
@@ -173,11 +316,11 @@ const app = Vue.createApp({
             this.storageReady = false;
             this.storageError = "";
 
-            try 
+            try
             {
-                if (STORAGE_MODE === "local") 
-                    {
-                    if (this.editingId === null) 
+                if (STORAGE_MODE === "local")
+                {
+                    if (this.editingId === null)
                     {
                         const maxId = Math.max(
                             0,
@@ -186,8 +329,8 @@ const app = Vue.createApp({
 
                         record.id = maxId + 1;
                         this.moodRecords.push(record);
-                    } 
-                    else 
+                    }
+                    else
                     {
                         record.id = this.editingId;
 
@@ -195,57 +338,58 @@ const app = Vue.createApp({
                             item => item.id === this.editingId
                         );
 
-                        if (index !== -1) 
+                        if (index !== -1)
                         {
                             this.moodRecords[index] = record;
                         }
                     }
 
                     saveToLocalStorage(this.moodRecords);
-                } 
-                else 
+                }
+                else
                 {
-                    if (this.editingId === null) 
+                    if (this.editingId === null)
                     {
                         await addItem(record);
-                    } 
-                    else 
+                    }
+                    else
                     {
                         record.id = this.editingId;
                         await updateItem(record);
                     }
 
-                    // перечитування після CRUD.
                     this.moodRecords = await getAllItems();
                 }
 
                 this.cancelEditing();
-            } 
-            catch (error) 
+            }
+            catch (error)
             {
                 this.storageError =
                     "Не вдалося зберегти запис.";
 
                 console.error(error);
 
-                if (STORAGE_MODE === "local") 
-                    {
+                if (STORAGE_MODE === "local")
+                {
                     this.moodRecords = loadFromLocalStorage();
                 }
-            } 
-            finally 
+            }
+            finally
             {
                 this.storageReady = true;
             }
         },
 
-        // Заповнення форми для редагування.
-        startEditing(id) {
+        // Практична №11: заповнення форми для редагування.
+        startEditing(id)
+        {
             const record = this.moodRecords.find(
                 item => item.id === id
             );
 
-            if (!record) {
+            if (!record)
+            {
                 return;
             }
 
@@ -258,17 +402,18 @@ const app = Vue.createApp({
                 .scrollIntoView({ behavior: "smooth" });
         },
 
-        cancelEditing() {
+        cancelEditing()
+        {
             this.editingId = null;
             this.newDate = "";
             this.newMood = "";
             this.newNote = "";
         },
 
-        // Видалення запису.
-        async removeMoodRecord(id) 
+        // Практична №11: видалення запису.
+        async removeMoodRecord(id)
         {
-            if (!this.storageReady) 
+            if (!this.storageReady)
             {
                 return;
             }
@@ -276,75 +421,75 @@ const app = Vue.createApp({
             this.storageReady = false;
             this.storageError = "";
 
-            try 
+            try
             {
-                if (STORAGE_MODE === "local") 
+                if (STORAGE_MODE === "local")
                 {
                     this.moodRecords = this.moodRecords.filter(
                         item => item.id !== id
                     );
 
                     saveToLocalStorage(this.moodRecords);
-                } 
-                else 
+                }
+                else
                 {
                     await deleteItem(id);
 
-                    // Оновлення реактивного списку.
                     this.moodRecords = await getAllItems();
                 }
 
-                if (this.editingId === id) 
+                if (this.editingId === id)
                 {
                     this.cancelEditing();
                 }
-            } 
-            catch (error) 
+            }
+            catch (error)
             {
                 this.storageError =
                     "Не вдалося видалити запис.";
 
                 console.error(error);
 
-                if (STORAGE_MODE === "local") 
+                if (STORAGE_MODE === "local")
                 {
                     this.moodRecords = loadFromLocalStorage();
                 }
-            } 
-            finally 
+            }
+            finally
             {
                 this.storageReady = true;
             }
         },
 
-        // Завантаження записів.
-        async loadSavedMoodRecords() {
+        // Практична №11: завантаження записів.
+        async loadSavedMoodRecords()
+        {
             this.storageReady = false;
             this.storageError = "";
 
-            try 
+            try
             {
-                if (STORAGE_MODE === "local") 
+                if (STORAGE_MODE === "local")
                 {
                     const saved = localStorage.getItem(
                         LOCAL_STORAGE_KEY
                     );
 
-                    if (saved === null) 
+                    if (saved === null)
                     {
                         saveToLocalStorage(INITIAL_MOOD_RECORDS);
                     }
 
                     this.moodRecords = loadFromLocalStorage();
-                } 
-                else 
+                }
+                else
                 {
                     this.moodRecords = await initializeStorage();
                 }
 
                 this.storageReady = true;
-            } 
-            catch (error) 
+            }
+            catch (error)
             {
                 this.storageError =
                     "Не вдалося відкрити сховище даних. " +
@@ -354,15 +499,18 @@ const app = Vue.createApp({
             }
         },
 
-        // Практична №9: отримання даних через Fetch API.
-        async loadData() {
+        // Практична №9: завантаження даних через Fetch API.
+        async loadData()
+        {
             this.isLoading = true;
             this.errorMessage = "";
 
-            try {
+            try
+            {
                 const response = await fetch(API_URL);
 
-                if (!response.ok) {
+                if (!response.ok)
+                {
                     throw new Error(
                         "Сервер відповів кодом " + response.status
                     );
@@ -370,7 +518,8 @@ const app = Vue.createApp({
 
                 const data = await response.json();
 
-                if (!Array.isArray(data)) {
+                if (!Array.isArray(data))
+                {
                     throw new Error(
                         "Некоректний формат даних API"
                     );
@@ -378,18 +527,23 @@ const app = Vue.createApp({
 
                 this.apiRecords = data;
                 console.log(data);
-            } catch (error) {
+            }
+            catch (error)
+            {
                 this.errorMessage =
                     "Записи тимчасово недоступні";
 
                 console.error(error);
-            } finally {
+            }
+            finally
+            {
                 this.isLoading = false;
             }
         }
     },
 
-    mounted() {
+    mounted()
+    {
         this.loadSavedMoodRecords();
         this.loadData();
     }
